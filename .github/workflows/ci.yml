@@ -3,9 +3,9 @@ name: OpenMRS CI
 on:
   workflow_dispatch: # temporary, for debugging
   push:
-    branches: [main]
+    branches: [main, bug_fixes, releases]
   pull_request:
-    branches: [main]
+    branches: [main, bug_fixes, releases]
   release:
     types:
       - created
