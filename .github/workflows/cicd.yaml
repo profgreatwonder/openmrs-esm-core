@@ -609,10 +609,7 @@ jobs:
     # FIXED: The deploy_app_shell job triggers deployment to OpenMRS Reference Application
     # It should only run after successful pre_release for main and bug_fixes branches
     if: ${{ 
-      github.event_name == 'push' && 
-      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bug_fixes') &&
-      (github.event.head_commit == null || !startsWith(github.event.head_commit.message, '(release)'))
-    }}
+      github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bug_fixes') && (github.event.head_commit == null || !startsWith(github.event.head_commit.message, '(release)'))}}
 
     steps:
       - name: 🚀 Trigger RefApp Build
