@@ -3,7 +3,7 @@ name: OpenMRS CICD
 on:
   workflow_dispatch: # temporary, for debugging
   push:
-    branches: [main, bug_fixes, releases]
+    branches: [bug_fixes, releases] # Changed: Removed 'main' to prevent duplicate workflow runs when pushing to main while a PR to releases is open
   pull_request:
     branches: [main, bug_fixes, releases]
   release:
@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: read
+      contents: read # Changed: Added contents: read permission to allow checkout to succeed
 
     steps:
       - uses: actions/checkout@v4
