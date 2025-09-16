@@ -1,11 +1,11 @@
-name: OpenMRS CICD
+name: OpenMRS CI
 
 on:
   workflow_dispatch: # temporary, for debugging
   push:
-    branches: [bug_fixes, releases] # Changed: Removed 'main' to prevent duplicate workflow runs when pushing to main while a PR to releases is open
+    branches: [main, bug_fixes, release]
   pull_request:
-    branches: [main, bug_fixes, releases]
+    branches: [main, bug_fixes, release]
   release:
     types:
       - created
@@ -20,7 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: read
-      contents: read # Changed: Added contents: read permission to allow checkout to succeed
 
     steps:
       - uses: actions/checkout@v4
@@ -57,12 +56,18 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
 
+    # UPDATED: Run pre_release for main and bug_fixes branches only, exclude release branch
     if: ${{ (github.event.head_commit == null ||
           !startsWith(github.event.head_commit.message, '(chore) Release v')) &&
-          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+          (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bug_fixes')) }}
 
     steps:
       - uses: actions/checkout@v4
+        # FIXED: Added fetch-depth and fetch-tags to resolve git branch issues
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
       - name: 🛠️ Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -86,14 +91,22 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           server-token: ${{ env.TURBO_TOKEN }}
 
+      - name: 🔄 Fetch all git branches and tags
+        # ADDED: This step fetches all branches and tags to resolve the yarn version error
+        run: |
+          git fetch --all --tags
+          git branch -a
+
       - name: 🏷️ Version
-        # This command CANNOT be run in parallel
-        run: yarn workspaces foreach --worktree --topological --exclude @openmrs/esm-core version "$(node -e "console.log(require('semver').inc(require('./package.json').version, 'patch'))")-pre.${{ github.run_number }}"
+        # FIXED: Added git config and fetch before running version command
+        run: |
+          git config --global user.email "info@openmrs.org"
+          git config --global user.name "OpenMRS CI"
+          yarn workspaces foreach --worktree --topological --exclude @openmrs/esm-core version "$(node -e "console.log(require('semver').inc(require('./package.json').version, 'patch'))")-pre.${{ github.run_number }}"
 
       - name: 🏗️ Build
         run: yarn turbo run build --color --concurrency=5
 
-      - run: git config user.email "info@openmrs.org" && git config user.name "OpenMRS CI"
       - run: git add . && git commit -m "Prerelease version" --no-verify
 
       - name: 🚀 Pre-release
@@ -146,9 +159,11 @@ jobs:
 
     needs: pre_release
 
+    # UPDATED: Exclude release branch from deployment
     if: ${{ (github.event.head_commit == null ||
           !startsWith(github.event.head_commit.message, '(release)')) &&
-          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+          (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bug_fixes')) ||
+          github.event_name == 'workflow_dispatch' }}
 
     steps:
       - name: 🚀 Trigger RefApp Build
