@@ -3,9 +3,11 @@ name: OpenMRS CICD
 on:
   workflow_dispatch: # temporary, for debugging
   push:
-    branches: [main, bug_fixes, releases]
+    # branches: [main, bug_fixes, releases]
+    branches: [release]
   pull_request:
-    branches: [main, bug_fixes, releases]
+    # branches: [main, bug_fixes, releases]
+    branches: [release]
   release:
     types:
       - created
