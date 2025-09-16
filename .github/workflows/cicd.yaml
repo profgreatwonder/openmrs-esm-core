@@ -1,3 +1,204 @@
+# name: OpenMRS CICD
+
+# on:
+#   workflow_dispatch: # temporary, for debugging
+#   push:
+#     branches: [main, bug-fixes, release]
+#   pull_request:
+#     branches: [main, bug-fixes, release]
+#   release:
+#     types:
+#       - created
+
+# env:
+#   TURBO_API: 'http://127.0.0.1:9080'
+#   TURBO_TOKEN: 'turbo-token'
+#   TURBO_TEAM: ${{ github.repository_owner }}
+
+# jobs:
+#   build:
+#     runs-on: ubuntu-latest
+#     permissions:
+#       actions: read
+
+#     # CONDITION LOGIC:
+#     # - Run for all events EXCEPT GitHub release events
+#     # - EXCLUDE pull requests targeting the "release" branch (since PRs to release shouldn't trigger actions)
+#     # - Allow PRs to main and bug-fixes branches
+#     # - Allow pushes to all branches (main, bug-fixes, release)
+#     # if: ${{ github.event_name != 'release' && 
+#     #         !(github.event_name == 'pull_request' && github.base_ref == 'release') }}
+
+#     steps:
+#       - uses: actions/checkout@v4
+        
+#       - name: 🛠️ Setup Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           registry-url: "https://registry.npmjs.org"  # Configure npm registry for publishing
+#           node-version: 20  # Use Node.js version 20
+
+#       - name: 💾 Cache dependencies
+#         id: cache
+#         uses: actions/cache@v4
+#         with:
+#           path: '**/node_modules'  # Cache all node_modules directories in the monorepo
+#           key: ${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}  # Cache key based on OS and yarn.lock hash
+
+#       - name: 📦 Install dependencies
+#         if: steps.cache.outputs.cache-hit != 'true'  # Only run if cache miss occurred
+#         run: yarn install --immutable
+
+#       - name: 🚀 Setup local cache server for Turborepo
+#         uses: felixmosh/turborepo-gh-artifacts@v3
+#         with:
+#           repo-token: ${{ secrets.GITHUB_TOKEN }}  # GitHub token for accessing artifacts
+#           server-token: ${{ env.TURBO_TOKEN }}  # Custom token for Turborepo server
+
+#       - name: 🏗️ Run build
+#         run: yarn turbo run build --color --concurrency=5
+
+#       - name: 🔍 Run lint, tests and typecheck code
+#         run: yarn run verify --concurrency=5
+
+#   pre_release:
+#     runs-on: ubuntu-latest
+#     needs: build  # Only run after build job completes successfully
+
+
+#     if: ${{ (github.event.head_commit == null ||
+#           !startsWith(github.event.head_commit.message, '(chore) Release v')) &&
+#           (
+#             (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bug-fixes' || github.ref == 'refs/heads/release')) ||
+#             (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'bug-fixes' || github.base_ref == 'release')) ||
+#             github.event_name == 'workflow_dispatch'
+#           ) }}
+
+#     steps:
+#       - uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
+#           fetch-tags: true
+
+#       - name: 🛠️ Setup Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           registry-url: "https://registry.npmjs.org"
+#           node-version: 20
+
+#       - name: 💾 Cache dependencies
+#         id: cache
+#         uses: actions/cache@v4
+#         with:
+#           path: '**/node_modules'
+#           key: ${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
+
+#       - name: 📦 Install dependencies
+#         if: steps.cache.outputs.cache-hit != 'true'
+#         run: yarn install --immutable
+
+#       - name: 🚀 Setup local cache server for Turborepo
+#         uses: felixmosh/turborepo-gh-artifacts@v3
+#         with:
+#           repo-token: ${{ secrets.GITHUB_TOKEN }}
+#           server-token: ${{ env.TURBO_TOKEN }}
+
+#       - name: 🔄 Setup git configuration and fetch all branches
+#         run: |
+#           git config --global user.email "info@openmrs.org"
+#           git config --global user.name "OpenMRS CI"
+#           git fetch --all --tags
+#           git branch -a
+
+#       - name: 🏷️ Version
+#         run: |
+#           git branch temp-backup || true
+#           yarn workspaces foreach --worktree --topological --exclude @openmrs/esm-core version "$(node -e "console.log(require('semver').inc(require('./package.json').version, 'patch'))")-pre.${{ github.run_number }}"
+
+#       - name: 🏗️ Build
+#         run: yarn turbo run build --color --concurrency=5
+
+#       - name: 📝 Commit version changes
+#         if: ${{ github.event_name == 'push' }}
+#         run: git add . && git commit -m "Prerelease version" --no-verify
+
+#       - name: 🚀 Pre-release
+#         if: ${{ github.event_name == 'push' }}
+#         run: yarn config set npmAuthToken "${NODE_AUTH_TOKEN}" && yarn run ci:publish-next
+#         env:
+#           NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+
+#       - name: 📤 Upload Artifacts
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: packages-${{ github.event_name }}-${{ github.run_number }}
+#           path: |
+#             packages/**/dist
+#         # PURPOSE: Save build artifacts for download/inspection
+#         # Useful for debugging and manual testing
+
+#   release:
+#     runs-on: ubuntu-latest
+#     needs: build  # Ensure build passes before attempting release
+
+#     # CONDITION: Only run for official GitHub release events
+#     if: ${{ github.event_name == 'release' }}
+
+#     steps:
+#       - uses: actions/checkout@v4
+
+#       - name: 🛠️ Setup Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           registry-url: "https://registry.npmjs.org"
+#           node-version: 20
+
+#       - name: 💾 Cache dependencies
+#         id: cache
+#         uses: actions/cache@v4
+#         with:
+#           path: '**/node_modules'
+#           key: ${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
+
+#       - name: 📦 Install dependencies
+#         if: steps.cache.outputs.cache-hit != 'true'
+#         run: yarn install --immutable
+
+#       - name: 🏗️ Build
+#         run: yarn turbo run build --color --concurrency=5
+
+#       - name: 🚀 Publish
+#         run: yarn config set npmAuthToken "${NODE_AUTH_TOKEN}" && yarn run ci:publish
+#         env:
+#           NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+  
+
+#   deploy_app_shell:
+#     runs-on: ubuntu-latest
+#     needs: pre_release  # Only run after successful pre-release
+
+#     # CONDITION LOGIC:
+#     # - Skip if commit message starts with "(release)" (avoid deployment loops)
+#     # - ONLY run for push events (not PRs, not releases)
+#     # - ONLY run for main and bug-fixes branches
+#     # - CONFIRMED: Will run for BOTH main and bug-fixes as requested
+#     if: ${{ (github.event.head_commit == null ||
+#           !startsWith(github.event.head_commit.message, '(release)')) &&
+#           github.event_name == 'push' && 
+#           (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bug-fixes' || github.ref == 'refs/heads/release') }}
+
+#     steps:
+#       - name: 🚀 Trigger RefApp Build
+#         uses: fjogeleit/http-request-action@v1
+#         continue-on-error: true  
+#         with:
+#           url: https://ci.openmrs.org/rest/api/latest/queue/O3-BF  # Bamboo CI API endpoint
+#           method: "POST"  # HTTP POST request to trigger build
+#           customHeaders: '{ "Authorization": "Bearer ${{ secrets.BAMBOO_TOKEN }}" }'  # Authentication header
+
+
+
+
 name: OpenMRS CICD
 
 on:
@@ -21,13 +222,8 @@ jobs:
     permissions:
       actions: read
 
-    # CONDITION LOGIC:
-    # - Run for all events EXCEPT GitHub release events
-    # - EXCLUDE pull requests targeting the "release" branch (since PRs to release shouldn't trigger actions)
-    # - Allow PRs to main and bug-fixes branches
-    # - Allow pushes to all branches (main, bug-fixes, release)
-    # if: ${{ github.event_name != 'release' && 
-    #         !(github.event_name == 'pull_request' && github.base_ref == 'release') }}
+    # Run for all PRs and pushes, but NOT for GitHub release events
+    if: ${{ github.event_name != 'release' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -35,25 +231,25 @@ jobs:
       - name: 🛠️ Setup Node.js
         uses: actions/setup-node@v4
         with:
-          registry-url: "https://registry.npmjs.org"  # Configure npm registry for publishing
-          node-version: 20  # Use Node.js version 20
+          registry-url: "https://registry.npmjs.org"
+          node-version: 20
 
       - name: 💾 Cache dependencies
         id: cache
         uses: actions/cache@v4
         with:
-          path: '**/node_modules'  # Cache all node_modules directories in the monorepo
-          key: ${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}  # Cache key based on OS and yarn.lock hash
+          path: '**/node_modules'
+          key: ${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
 
       - name: 📦 Install dependencies
-        if: steps.cache.outputs.cache-hit != 'true'  # Only run if cache miss occurred
+        if: steps.cache.outputs.cache-hit != 'true'
         run: yarn install --immutable
 
       - name: 🚀 Setup local cache server for Turborepo
         uses: felixmosh/turborepo-gh-artifacts@v3
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}  # GitHub token for accessing artifacts
-          server-token: ${{ env.TURBO_TOKEN }}  # Custom token for Turborepo server
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          server-token: ${{ env.TURBO_TOKEN }}
 
       - name: 🏗️ Run build
         run: yarn turbo run build --color --concurrency=5
@@ -63,16 +259,11 @@ jobs:
 
   pre_release:
     runs-on: ubuntu-latest
-    needs: build  # Only run after build job completes successfully
+    needs: build
 
-
-    if: ${{ (github.event.head_commit == null ||
-          !startsWith(github.event.head_commit.message, '(chore) Release v')) &&
-          (
-            (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bug-fixes' || github.ref == 'refs/heads/release')) ||
-            (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'bug-fixes' || github.base_ref == 'release')) ||
-            github.event_name == 'workflow_dispatch'
-          ) }}
+    # Run for ALL branches on both PRs and pushes, but NOT for GitHub release events
+    # Also exclude release commit messages to avoid loops
+    if: ${{ github.event_name != 'release' && (github.event.head_commit == null || !startsWith(github.event.head_commit.message, '(chore) Release v')) }}
 
     steps:
       - uses: actions/checkout@v4
@@ -119,10 +310,12 @@ jobs:
         run: yarn turbo run build --color --concurrency=5
 
       - name: 📝 Commit version changes
+        # Only commit and publish for push events, not PRs
         if: ${{ github.event_name == 'push' }}
         run: git add . && git commit -m "Prerelease version" --no-verify
 
       - name: 🚀 Pre-release
+        # Only publish for push events, not PRs
         if: ${{ github.event_name == 'push' }}
         run: yarn config set npmAuthToken "${NODE_AUTH_TOKEN}" && yarn run ci:publish-next
         env:
@@ -134,12 +327,10 @@ jobs:
           name: packages-${{ github.event_name }}-${{ github.run_number }}
           path: |
             packages/**/dist
-        # PURPOSE: Save build artifacts for download/inspection
-        # Useful for debugging and manual testing
 
   release:
     runs-on: ubuntu-latest
-    needs: build  # Ensure build passes before attempting release
+    needs: build
 
     # CONDITION: Only run for official GitHub release events
     if: ${{ github.event_name == 'release' }}
@@ -175,23 +366,17 @@ jobs:
 
   deploy_app_shell:
     runs-on: ubuntu-latest
-    needs: pre_release  # Only run after successful pre-release
+    needs: pre_release
 
-    # CONDITION LOGIC:
-    # - Skip if commit message starts with "(release)" (avoid deployment loops)
-    # - ONLY run for push events (not PRs, not releases)
-    # - ONLY run for main and bug-fixes branches
-    # - CONFIRMED: Will run for BOTH main and bug-fixes as requested
-    if: ${{ (github.event.head_commit == null ||
-          !startsWith(github.event.head_commit.message, '(release)')) &&
-          github.event_name == 'push' && 
-          (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bug-fixes' || github.ref == 'refs/heads/release') }}
+    # Run deploy ONLY for push events to ALL branches (main, bug-fixes, release)
+    # Skip for PRs and release commit messages
+    if: ${{ github.event_name == 'push' && (github.event.head_commit == null || !startsWith(github.event.head_commit.message, '(release)')) }}
 
     steps:
       - name: 🚀 Trigger RefApp Build
         uses: fjogeleit/http-request-action@v1
         continue-on-error: true  
         with:
-          url: https://ci.openmrs.org/rest/api/latest/queue/O3-BF  # Bamboo CI API endpoint
-          method: "POST"  # HTTP POST request to trigger build
-          customHeaders: '{ "Authorization": "Bearer ${{ secrets.BAMBOO_TOKEN }}" }'  # Authentication header
+          url: https://ci.openmrs.org/rest/api/latest/queue/O3-BF
+          method: "POST"
+          customHeaders: '{ "Authorization": "Bearer ${{ secrets.BAMBOO_TOKEN }}" }'
