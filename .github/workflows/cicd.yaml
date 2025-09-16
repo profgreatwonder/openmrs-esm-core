@@ -444,7 +444,7 @@
 
 
 
-name: OpenMRS CICD
+name: OpenMRS CI
 
 on:
   workflow_dispatch: # temporary, for debugging
