@@ -3,9 +3,9 @@
 # on:
 #   workflow_dispatch: # temporary, for debugging
 #   push:
-#     branches: [main, bug_fixes, release]
+#     branches: [main, bug-fixes, release]
 #   pull_request:
-#     branches: [main, bug_fixes, release]
+#     branches: [main, bug-fixes, release]
 #   release:
 #     types:
 #       - created
@@ -59,11 +59,11 @@
 #     runs-on: ubuntu-latest
 #     needs: build
 
-#     # UPDATED: Run pre_release for main and bug_fixes branches only, exclude release branch and release events
+#     # UPDATED: Run pre_release for main and bug-fixes branches only, exclude release branch and release events
 #     if: ${{ (github.event.head_commit == null ||
 #           !startsWith(github.event.head_commit.message, '(chore) Release v')) &&
 #           github.event_name == 'push' && 
-#           (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bug_fixes') }}
+#           (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bug-fixes') }}
 
 #     steps:
 #       - uses: actions/checkout@v4
@@ -177,7 +177,7 @@
 #     if: ${{ (github.event.head_commit == null ||
 #           !startsWith(github.event.head_commit.message, '(release)')) &&
 #           github.event_name == 'push' && 
-#           (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bug_fixes') }}
+#           (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bug-fixes') }}
 
 #     steps:
 #       - name: 🚀 Trigger RefApp Build
@@ -198,9 +198,9 @@
 # on:
 #   workflow_dispatch: # temporary, for debugging
 #   push:
-#     branches: [main, bug_fixes, release]
+#     branches: [main, bug-fixes, release]
 #   pull_request:
-#     branches: [main, bug_fixes, release]
+#     branches: [main, bug-fixes, release]
 #   release:
 #     types:
 #       - created
@@ -219,8 +219,8 @@
 #     # CONDITION LOGIC:
 #     # - Run for all events EXCEPT GitHub release events
 #     # - EXCLUDE pull requests targeting the "release" branch (since PRs to release shouldn't trigger actions)
-#     # - Allow PRs to main and bug_fixes branches
-#     # - Allow pushes to all branches (main, bug_fixes, release)
+#     # - Allow PRs to main and bug-fixes branches
+#     # - Allow pushes to all branches (main, bug-fixes, release)
 #     if: ${{ github.event_name != 'release' && 
 #             !(github.event_name == 'pull_request' && github.base_ref == 'release') }}
 
@@ -273,15 +273,15 @@
 
 #     # CONDITION LOGIC:
 #     # - Skip if commit message starts with "(chore) Release v" (avoid infinite loops)
-#     # - FOR PUSH EVENTS: Only run on main and bug_fixes branches
-#     # - FOR PULL REQUEST EVENTS: Only run for PRs targeting main and bug_fixes branches
+#     # - FOR PUSH EVENTS: Only run on main and bug-fixes branches
+#     # - FOR PULL REQUEST EVENTS: Only run for PRs targeting main and bug-fixes branches
 #     # - FOR WORKFLOW_DISPATCH: Always run (manual trigger)
 #     # - NEVER run for "release" branch activities or GitHub release events
 #     if: ${{ (github.event.head_commit == null ||
 #           !startsWith(github.event.head_commit.message, '(chore) Release v')) &&
 #           (
-#             (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bug_fixes')) ||
-#             (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'bug_fixes')) ||
+#             (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bug-fixes')) ||
+#             (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'bug-fixes')) ||
 #             github.event_name == 'workflow_dispatch'
 #           ) }}
 
@@ -418,12 +418,12 @@
 #     # CONDITION LOGIC:
 #     # - Skip if commit message starts with "(release)" (avoid deployment loops)
 #     # - ONLY run for push events (not PRs, not release)
-#     # - ONLY run for main and bug_fixes branches
-#     # - CONFIRMED: Will run for BOTH main and bug_fixes as requested
+#     # - ONLY run for main and bug-fixes branches
+#     # - CONFIRMED: Will run for BOTH main and bug-fixes as requested
 #     if: ${{ (github.event.head_commit == null ||
 #           !startsWith(github.event.head_commit.message, '(release)')) &&
 #           github.event_name == 'push' && 
-#           (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bug_fixes') }}
+#           (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bug-fixes') }}
 
 #     steps:
 #       - name: 🚀 Trigger RefApp Build
@@ -435,7 +435,7 @@
 #           customHeaders: '{ "Authorization": "Bearer ${{ secrets.BAMBOO_TOKEN }}" }'  # Authentication header
 #         # PURPOSE: Automatically trigger deployment in external Bamboo CI system
 #         # - This happens after successful pre-release publishing
-#         # - Triggers for BOTH main and bug_fixes branches as requested
+#         # - Triggers for BOTH main and bug-fixes branches as requested
 #         # - The "O3-BF" appears to be the Bamboo build plan identifier
 #         # - continue-on-error ensures workflow doesn't fail if Bamboo is unavailable
 
@@ -444,14 +444,14 @@
 
 
 
-name: OpenMRS CICD
+name: OpenMRS CI
 
 on:
   workflow_dispatch: # temporary, for debugging
   push:
-    branches: [main, bug_fixes, release]  # CORRECTED: Branch name is "release" not "releases"
+    branches: [main, bug-fixes, release]  # CORRECTED: Branch name is "release" not "releases"
   pull_request:
-    branches: [main, bug_fixes, release]  # CORRECTED: Branch name is "release" not "releases"
+    branches: [main, bug-fixes, release]  # CORRECTED: Branch name is "release" not "releases"
   release:
     types:
       - created
@@ -470,8 +470,8 @@ jobs:
     # CONDITION LOGIC:
     # - Run for all events EXCEPT GitHub release events
     # - EXCLUDE pull requests targeting the "release" branch (since PRs to release shouldn't trigger actions)
-    # - Allow PRs to main and bug_fixes branches
-    # - Allow pushes to all branches (main, bug_fixes, release)
+    # - Allow PRs to main and bug-fixes branches
+    # - Allow pushes to all branches (main, bug-fixes, release)
     if: ${{ github.event_name != 'release' && 
             !(github.event_name == 'pull_request' && github.base_ref == 'release') }}
 
@@ -524,15 +524,15 @@ jobs:
 
     # CONDITION LOGIC:
     # - Skip if commit message starts with "(chore) Release v" (avoid infinite loops)
-    # - FOR PUSH EVENTS: Only run on main and bug_fixes branches
-    # - FOR PULL REQUEST EVENTS: Only run for PRs targeting main and bug_fixes branches
+    # - FOR PUSH EVENTS: Only run on main and bug-fixes branches
+    # - FOR PULL REQUEST EVENTS: Only run for PRs targeting main and bug-fixes branches
     # - FOR WORKFLOW_DISPATCH: Always run (manual trigger)
     # - NEVER run for "release" branch activities or GitHub release events
     if: ${{ (github.event.head_commit == null ||
           !startsWith(github.event.head_commit.message, '(chore) Release v')) &&
           (
-            (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bug_fixes')) ||
-            (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'bug_fixes')) ||
+            (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bug-fixes')) ||
+            (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'bug-fixes')) ||
             github.event_name == 'workflow_dispatch'
           ) }}
 
@@ -669,12 +669,12 @@ jobs:
     # CONDITION LOGIC:
     # - Skip if commit message starts with "(release)" (avoid deployment loops)
     # - ONLY run for push events (not PRs, not releases)
-    # - ONLY run for main and bug_fixes branches
-    # - CONFIRMED: Will run for BOTH main and bug_fixes as requested
+    # - ONLY run for main and bug-fixes branches
+    # - CONFIRMED: Will run for BOTH main and bug-fixes as requested
     if: ${{ (github.event.head_commit == null ||
           !startsWith(github.event.head_commit.message, '(release)')) &&
           github.event_name == 'push' && 
-          (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bug_fixes') }}
+          (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bug-fixes') }}
 
     steps:
       - name: 🚀 Trigger RefApp Build
@@ -686,6 +686,6 @@ jobs:
           customHeaders: '{ "Authorization": "Bearer ${{ secrets.BAMBOO_TOKEN }}" }'  # Authentication header
         # PURPOSE: Automatically trigger deployment in external Bamboo CI system
         # - This happens after successful pre-release publishing
-        # - Triggers for BOTH main and bug_fixes branches as requested
+        # - Triggers for BOTH main and bug-fixes branches as requested
         # - The "O3-BF" appears to be the Bamboo build plan identifier
         # - continue-on-error ensures workflow doesn't fail if Bamboo is unavailable
