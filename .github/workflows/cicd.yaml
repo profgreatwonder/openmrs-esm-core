@@ -1,11 +1,11 @@
-name: OpenMRS CICD
+name: OpenMRS CI
 
 on:
   workflow_dispatch: # temporary, for debugging
   push:
-    branches: [main, bug-fixes, release]  
+    branches: [main, bug-fixes, release]
   pull_request:
-    branches: [main, bug-fixes, release] 
+    branches: [main, bug-fixes, release]
   release:
     types:
       - created
@@ -21,12 +21,8 @@ jobs:
     permissions:
       actions: read
 
-    # Run for all PRs and pushes except GitHub releases
-    if: ${{ github.event_name != 'release' }}
-
     steps:
       - uses: actions/checkout@v4
-        
       - name: 🛠️ Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -60,19 +56,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
 
-    # FIXED: Simplified condition to run for ALL pushes and PRs to ALL branches
-    # Exclude only GitHub release events and release commit messages
-    if: ${{ 
-      github.event_name != 'release' && 
-      (github.event.head_commit == null || !startsWith(github.event.head_commit.message, '(chore) Release v'))
-    }}
+    if: ${{ (github.event.head_commit == null ||
+          !startsWith(github.event.head_commit.message, '(chore) Release v')) &&
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-
       - name: 🛠️ Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -96,29 +85,17 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           server-token: ${{ env.TURBO_TOKEN }}
 
-      - name: 🔄 Setup git configuration and fetch all branches
-        run: |
-          git config --global user.email "info@openmrs.org"
-          git config --global user.name "OpenMRS CI"
-          git fetch --all --tags
-          git branch -a
-
       - name: 🏷️ Version
-        run: |
-          git branch temp-backup || true
-          yarn workspaces foreach --worktree --topological --exclude @openmrs/esm-core version "$(node -e "console.log(require('semver').inc(require('./package.json').version, 'patch'))")-pre.${{ github.run_number }}"
+        # This command CANNOT be run in parallel
+        run: yarn workspaces foreach --worktree --topological --exclude @openmrs/esm-core version "$(node -e "console.log(require('semver').inc(require('./package.json').version, 'patch'))")-pre.${{ github.run_number }}"
 
       - name: 🏗️ Build
         run: yarn turbo run build --color --concurrency=5
 
-      - name: 📝 Commit version changes
-        # Only commit for push events, not PRs
-        if: ${{ github.event_name == 'push' }}
-        run: git add . && git commit -m "Prerelease version" --no-verify
+      - run: git config user.email "info@openmrs.org" && git config user.name "OpenMRS CI"
+      - run: git add . && git commit -m "Prerelease version" --no-verify
 
       - name: 🚀 Pre-release
-        # Only publish for push events, not PRs
-        if: ${{ github.event_name == 'push' }}
         run: yarn config set npmAuthToken "${NODE_AUTH_TOKEN}" && yarn run ci:publish-next
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
@@ -126,7 +103,7 @@ jobs:
       - name: 📤 Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: packages-${{ github.event_name }}-${{ github.run_number }}
+          name: packages
           path: |
             packages/**/dist
 
@@ -134,12 +111,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
 
-    # Only run for GitHub release events
     if: ${{ github.event_name == 'release' }}
 
     steps:
       - uses: actions/checkout@v4
-
       - name: 🛠️ Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -167,14 +142,12 @@ jobs:
 
   deploy_app_shell:
     runs-on: ubuntu-latest
+
     needs: pre_release
 
-    # FIXED: Run for ALL push events to ALL branches (main, bug-fixes, release)
-    # Exclude only release commit messages
-    if: ${{ 
-      github.event_name == 'push' && 
-      (github.event.head_commit == null || !startsWith(github.event.head_commit.message, '(release)'))
-    }}
+    if: ${{ (github.event.head_commit == null ||
+          !startsWith(github.event.head_commit.message, '(release)')) &&
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
 
     steps:
       - name: 🚀 Trigger RefApp Build
